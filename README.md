@@ -2,7 +2,7 @@
 
 ### Reserved Capacity Manager for Kubernetes
 
-This application is designed to optimize the responsiveness of Kubernetes cluster-autoscaler by proactively reserving low-priority resources on worker nodes as "hot spare" capacity. By deploying this application as a Kubernetes Deployment and scaling it proportionally with cluster-proportional-autoscaler, it ensures that each node maintains a certain number of reserved Pods. These low-priority Pods act as placeholders and are evicted when higher-priority user workloads are scheduled.
+This application is designed to optimize the responsiveness of Kubernetes **cluster-autoscaler** by proactively reserving low-priority resources on worker nodes as "hot spare" capacity. By deploying this application as a Kubernetes Deployment and scaling it proportionally with **cluster-proportional-autoscaler**, it ensures that each node maintains a certain number of reserved Pods. These low-priority Pods act as placeholders and are evicted when higher-priority user workloads are scheduled. When these low-priority Pods are evicted from the nodes, they become Unscheduleable as no node has enough resources and no other low-priority Pods to evict, so that they will be stuck in the Pending state. At this point, the **cluster-autoscaler** finds them and scales the cluster to make room for them. Using this approach, you're one step further than your user, and you always have some resources available when a user asks for.
 
 ## Key Features:
 
@@ -18,10 +18,21 @@ This application is designed to optimize the responsiveness of Kubernetes cluste
   2. The **cluster-proportional-autoscaler** ensures the number of reserved Pods scales dynamically based on the cluster's size and configuration.
 
   3. When a user deploys a normal application:
-       - Reserved Pods are evicted to free up capacity.
-       - If the cluster lacks sufficient resources for the evicted Pods, the **cluster-autoscaler** scales up the cluster by adding new nodes.
-
-  4. By having reserved capacity readily available, the perceived cluster-autoscaler scaling time is minimized for end-users.
+      1. If the cluster has sufficient resources to run the user's application, the application will be deployed straight away into some node without further actions.
+      2. If the cluster lacks sufficient resources:
+        - **If the reserved capacity can provide what the application needs:**
+          1. The reserved capacity Pods will be evicted from the nodes to free up the capacity.
+          2. The user's application will be deployed straight away.
+          3. As the reserved capacity Pods are evicted and have the lowest priority in the cluster, they cannot be deployed to any nodes and will remain stuck in the **Pending** state.
+          3. The **cluster-autoscaler** then finds that the reserved capacity Pods cannot be deployed into any nodes and brings up some new nodes to deploy them.
+          4. Now, we have some new nodes and reserved capacity before our hands for new user applications. With this approach, we always have some reserved space to provide.
+          5. By having reserved capacity readily available, the perceived **cluster-autoscaler** scaling time is minimized for end-users.
+        - **If the reserved capacity is not enough to fulfil the application needs:**
+          1. The reserved Pods remain on the nodes, and no eviction happens.
+          2. The user's application may become Pending or some other normal applications may be evicted (if they have lower-priority or use more resources than their requests). In either way some normal application will be stuck in the Pending state.
+          3. The cluster-autoscaler finds them and brings up some new nodes to deploy them.
+          4. Reserved capacity doesn't help in this scenario, and the user must wait for cluster scaling.
+          5. To make the reserved capacity effective, try to reserve more resources.
 
 ## Facts used to develop this application:
 
@@ -51,7 +62,6 @@ This application is designed to optimize the responsiveness of Kubernetes cluste
       - Kubernetes already ships with two PriorityClasses: system-cluster-critical and system-node-critical.
       - The cluster must have at least one global default priority class.
       - Pods with preemptionPolicy: Never will be placed in the scheduling queue ahead of lower-priority pods, but they cannot preempt other pods.
-      - The global default priority class must have preemptionPolicy: Never to avoid preempting other pods.
       - The priority class created for one-off jobs like AI and ML jobs can have lower or higher priority but must be non-preempting to avoid preempting normal pods.
       - Non-preempting pods may still be preempted by other, high-priority pods.
       - When Pod priority is enabled, the scheduler orders pending Pods by their priority and a pending Pod is placed ahead of other pending Pods with lower priority in the scheduling queue.
