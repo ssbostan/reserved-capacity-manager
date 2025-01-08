@@ -1,0 +1,4 @@
+resources:
+  - priorityclass.yaml
+  - poddisruptionbudget.yaml
+  - deployment.yaml

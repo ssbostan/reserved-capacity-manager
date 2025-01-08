@@ -1,0 +1,59 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: reserved-capacity-manager-consumer
+  labels:
+    app.kubernetes.io/name: consumer
+    app.kubernetes.io/part-of: reserved-capacity-manager
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: consumer
+      app.kubernetes.io/part-of: reserved-capacity-manager
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: consumer
+        app.kubernetes.io/part-of: reserved-capacity-manager
+    spec:
+      affinity:
+        podAntiAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            - topologyKey: kubernetes.io/hostname
+              labelSelector:
+                matchExpressions:
+                  - key: app.kubernetes.io/name
+                    operator: In
+                    values:
+                      - consumer
+                  - key: app.kubernetes.io/part-of
+                    operator: In
+                    values:
+                      - reserved-capacity-manager
+      automountServiceAccountToken: false
+      enableServiceLinks: false
+      priorityClassName: reserved-capacity
+      terminationGracePeriodSeconds: 0
+      containers:
+        - name: consumer
+          image: ssbostan/rcm-consumer:latest
+          args: ["-workers", "2", "-memory", "2048"]
+          resources:
+            requests:
+              memory: 1Gi
+              cpu: 1000m
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+            privileged: false
+            runAsNonRoot: true
+            readOnlyRootFilesystem: true
+            runAsUser: 1000
+          volumeMounts:
+            - name: reserved-local-storage
+              mountPath: /reserved-local-storage
+      volumes:
+        - name: reserved-local-storage
+          emptyDir:

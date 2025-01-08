@@ -1,0 +1,21 @@
+apiVersion: scheduling.k8s.io/v1
+kind: PriorityClass
+metadata:
+  name: default
+  labels:
+    app.kubernetes.io/part-of: reserved-capacity-manager
+description: "The global default priority class used for all applications."
+globalDefault: true
+preemptionPolicy: PreemptLowerPriority
+value: 1
+---
+apiVersion: scheduling.k8s.io/v1
+kind: PriorityClass
+metadata:
+  name: reserved-capacity
+  labels:
+    app.kubernetes.io/part-of: reserved-capacity-manager
+description: "The priority class used for reserved-capacity-manager consumer pods."
+globalDefault: false
+preemptionPolicy: Never
+value: -1

@@ -1,0 +1,13 @@
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: reserved-capacity-manager-consumer
+  labels:
+    app.kubernetes.io/name: consumer
+    app.kubernetes.io/part-of: reserved-capacity-manager
+spec:
+  minAvailable: 0
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: consumer
+      app.kubernetes.io/part-of: reserved-capacity-manager
